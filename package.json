@@ -10,15 +10,19 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-three/drei": "^9.99.7",
     "@react-three/fiber": "^8.15.16",
+    "@tweenjs/tween.js": "^23.1.1",
     "@use-gesture/react": "^10.3.0",
+    "leva": "^0.9.35",
     "localforage": "^1.10.0",
     "match-sorter": "^6.3.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.0",
     "sort-by": "^1.2.0",
-    "three": "^0.161.0"
+    "three": "^0.161.0",
+    "tween": "^0.9.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.55",

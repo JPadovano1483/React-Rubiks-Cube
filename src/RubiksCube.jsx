@@ -1,6 +1,63 @@
-import { useEffect, useRef, useState } from "react";
+/* eslint-disable react/prop-types */
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import PropTypes from 'prop-types';
+import { OrbitControls } from '@react-three/drei';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
+import TWEEN from '@tweenjs/tween.js';
+import { useControls, button } from 'leva';
+
+// https://github.com/Sean-Bradley/React-Three-Fiber-Boilerplate - used to help figure out rotating different groups of cubes
+
+// eslint-disable-next-line react/prop-types
+const Buttons = ({ cubeGroup }) => {
+  const rotationGroup = useRef()
+
+  useControls('Cube', {
+    'Left CW': button(() => {
+      rotate(cubeGroup.current, rotationGroup.current, 'x', -0.5, 1)
+    }),
+    'Left CCW': button(() => {
+      rotate(cubeGroup.current, rotationGroup.current, 'x', -0.5, -1)
+    }),
+    'Right CW': button(() => {
+      rotate(cubeGroup.current, rotationGroup.current, 'x', 0.5, -1)
+    }),
+    'Right CCW': button(() => {
+      rotate(cubeGroup.current, rotationGroup.current, 'x', 0.5, 1)
+    }),
+    'Back CW': button(() => {
+      rotate(cubeGroup.current, rotationGroup.current, 'z', -0.5, 1)
+    }),
+    'Back CCW': button(() => {
+      rotate(cubeGroup.current, rotationGroup.current, 'z', -0.5, -1)
+    }),
+    'Front CW': button(() => {
+      rotate(cubeGroup.current, rotationGroup.current, 'z', 0.5, -1)
+    }),
+    'Front CCW': button(() => {
+      rotate(cubeGroup.current, rotationGroup.current, 'z', 0.5, 1)
+    }),
+    'Top CW': button(() => {
+      rotate(cubeGroup.current, rotationGroup.current, 'y', 0.5, -1)
+    }),
+    'Top CCW': button(() => {
+      rotate(cubeGroup.current, rotationGroup.current, 'y', 0.5, 1)
+    }),
+    'Bottom CW': button(() => {
+      rotate(cubeGroup.current, rotationGroup.current, 'y', -0.5, 1)
+    }),
+    'Bottom CCW': button(() => {
+      rotate(cubeGroup.current, rotationGroup.current, 'y', -0.5, -1)
+    })
+  })
+
+  return (
+    <>
+      <group ref={rotationGroup} />
+    </>
+  )
+}
 
 const SubCube = (props) => {
   SubCube.propTypes = {
@@ -39,7 +96,6 @@ const SubCube = (props) => {
   const mesh = useRef();
   return (
     <mesh {...props} ref={mesh}>
-        <boxGeometry args={[1, 1, 1]} />
         <meshBasicMaterial attach="material-0" color={faceColors[0]} />
         <meshBasicMaterial attach="material-1" color={faceColors[1]} />
         <meshBasicMaterial attach="material-2" color={faceColors[2]} />
@@ -50,48 +106,77 @@ const SubCube = (props) => {
   );
 }
 
-const Face = (props) => {
-  Face.propTypes = {
-    positions: PropTypes.array
-  }
-  const mesh = useRef();
-  const positions = props.positions;
-  useFrame(() => {
-    if (positions.some(elem => elem[0] == 1)) mesh.current.rotation.x += 0.01;
-    // if (count > 157 && count < 314 && positions.some(elem => elem[0] == 1)) mesh.current.rotation.y += -0.01;
-   })
-  
-  return (
-    <mesh {...props} ref={mesh}>
-      {positions.map((pos, index) => (
-        <SubCube key={index} position={pos} />
-      ))}
-    </mesh>
-  )
-}
-
 const Cube = (props) => {
   Cube.propTypes = {
-    facePositions: PropTypes.array
+    subcubePositions: PropTypes.array
   }
-  const mesh = useRef();
-  const facePositions = props.facePositions;
+  const ref = useRef();
+  const subcubePositions = props.subcubePositions;
   useFrame(() => {
-    mesh.current.rotation.y += 0.01;
+    TWEEN.update()
   })
+  const roundedBoxGeometry = useMemo(() => new RoundedBoxGeometry(1, 1, 1, 3, 0.1));
   return (
-    <mesh {...props} ref={mesh} rotation={[Math.PI / 8, 0, 0]}>
-      {facePositions.map((pos, index) => (
-        <Face key={index} positions={pos} />
-      ))}
-    </mesh>
+    // <mesh {...props} ref={mesh} rotation={[Math.PI / 8, 0, 0]}>
+    <>
+      <group ref={ref}>
+        {subcubePositions.map((pos, index) => (
+          <SubCube key={index} position={pos} geometry={roundedBoxGeometry}/>
+        ))}
+      </group>
+      <Buttons cubeGroup={ref} />
+    </>
+    // </mesh>
   )
 }
 
+const resetCubeGroup = (cubeGroup, rotationGroup) => {
+  rotationGroup.children
+    .slice()
+    .reverse()
+    .forEach(function (c) {
+      cubeGroup.attach(c)
+    })
+  rotationGroup.quaternion.set(0, 0, 0, 1)
+}
+
+const attachToRotationGroup = (cubeGroup, rotationGroup, axis, limit) => {
+  cubeGroup.children
+    .slice()
+    .reverse()
+    .filter(function (c) {
+      return limit < 0 ? c.position[axis] < limit : c.position[axis] > limit
+    })
+    .forEach(function (c) {
+      rotationGroup.attach(c)
+    })
+}
+
+const animateRotationGroup = (rotationGroup, axis, multiplier) => {
+  new TWEEN.Tween(rotationGroup.rotation)
+    .to(
+      {
+        [axis]: rotationGroup.rotation[axis] + (Math.PI / 2) * multiplier
+      },
+      250
+    )
+    .easing(TWEEN.Easing.Cubic.InOut)
+    .start()
+}
+
+const rotate = (cubeGroup, rotationGroup, axis, limit, multiplier) => {
+  if (!TWEEN.getAll().length) {
+    resetCubeGroup(cubeGroup, rotationGroup)
+    attachToRotationGroup(cubeGroup, rotationGroup, axis, limit)
+    animateRotationGroup(rotationGroup, axis, multiplier)
+  }
+}
+
+
 export default function RubiksCube() {
-  const facePositions = [
+  const subcubePositions = [
     // right face
-    [[1, 0, 0],
+    [1, 0, 0],
     [1, -1, -1],
     [1, 1, -1],
     [1, -1, 1],
@@ -99,9 +184,9 @@ export default function RubiksCube() {
     [1, 0, -1],
     [1, 1, 0],
     [1, -1, 0],
-    [1, 0, 1]],
+    [1, 0, 1],
     // middle layer
-    [[0, 0, 0],
+    [0, 0, 0],
     [0, 0, -1],
     [0, 0, 1],
     [0, -1, 0],
@@ -109,9 +194,9 @@ export default function RubiksCube() {
     [0, -1, -1],
     [0, 1, -1],
     [0, -1, 1],
-    [0, 1, 1]],
+    [0, 1, 1],
     // left face
-    [[-1, 0, 0],
+    [-1, 0, 0],
     [-1, -1, -1],
     [-1, 1, -1],
     [-1, -1, 1],
@@ -119,12 +204,13 @@ export default function RubiksCube() {
     [-1, 0, -1],
     [-1, 1, 0],
     [-1, -1, 0],
-    [-1, 0, 1]]
+    [-1, 0, 1]
   ]
    return (
       <Canvas>
         <ambientLight />
-        <Cube facePositions={facePositions} />
+        <Cube subcubePositions={subcubePositions} />
+        <OrbitControls target={[0, 0, 0]} />
       </Canvas>
    );
 }
